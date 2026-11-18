@@ -1,131 +1,33 @@
 import { atom, read, update } from 'claude-code'
-import type { Register } from 'claude-code'
+import type { EngineInterface, Register } from 'claude-code'
 
 import type { Gauge } from '../types'
+import { WIDGET_SVG } from './widget-svg.js'
 
-// One device: two glass tubes joined side by side under a shared cap and base,
-// each filled with glowing ooze to its percent used.
+// The drawing is the approved Claude Capacity V10 design, kept as its own
+// component: widget-svg.ts holds V10's markup, CSS and animation as one
+// pure-vector SVG, with the artwork traced to paths (the app leaves embedded
+// pictures blank). design/build_widget.py generates it from the original V10
+// HTML. This module only fills in real usage.
 
-type Ooze = { core: string; light: string; deep: string }
+// The app refuses a drawn tree past 100,000 serialized characters (quotes
+// count twice, as \"). Stay under this, or draw the text fallback instead.
+export const TREE_BUDGET = 95_000
 
-const GREEN: Ooze = { core: '#7dff1f', light: '#d8ff96', deep: '#2c8a08' }
-const RED: Ooze = { core: '#ff1f45', light: '#ff9cad', deep: '#8a0a20' }
+// V10's geometry, in the template's units (V10 laid out 320 px wide).
+const ART_W = 320
+const ART_H = 348.99
+const VIAL_BOTTOM = 187.84
+const VIAL_H = 120.59
+const BAR_W = 134.17
+
+const round2 = (n: number) => Math.round(n * 100) / 100
+const clamp = (p: number) => Math.max(0, Math.min(100, Number(p) || 0))
 
 const escape = (text: string) =>
-  text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 
-const round = (n: number) => Math.round(n * 10) / 10
-const clamp = (p: number) => Math.max(0, Math.min(100, p))
-
-// The drawing is W x H; two tubes sit either side of a hairline spine.
-const W = 248
-const H = 288
-const TOP = 62
-const BOTTOM = 232
-const TUBE_W = 96
-const LEFT_X = 24
-const SPINE_X = 121
-const SPINE_W = 6
-const RIGHT_X = 128
-const MID = (TOP + BOTTOM) / 2
-const FONT = 'font-family="system-ui, sans-serif"'
-
-const riseFor = (percent: number) => round(((BOTTOM - TOP) * clamp(percent)) / 100)
-
-function tube(id: string, x: number, percent: number, ooze: Ooze, label: string, sub: string): string {
-  const p = clamp(percent)
-  const height = BOTTOM - TOP
-  const rise = riseFor(p)
-  const level = round(BOTTOM - rise)
-  const glow = round(0.3 + p / 180)
-  const cx = x + TUBE_W / 2
-  const isFull = p >= 100
-
-  // Bubbles rise from the floor of the tube to the ooze surface.
-  const bubbles =
-    rise < 14
-      ? ''
-      : [8, 26, 44, 62, 80, 16, 70]
-          .map((dx, i) => {
-            const r = i % 3 === 0 ? 2.6 : 1.6
-            const dur = 3.5 + (i % 4) * 1.3
-            return `<circle class="${id}b" cx="${x + 6 + dx}" cy="${BOTTOM - 6}" r="${r}" fill="${ooze.light}" style="animation-duration:${dur}s;animation-delay:${-(i * 0.9)}s"/>`
-          })
-          .join('')
-
-  return `<defs>
-<linearGradient id="${id}ooze" x1="0" y1="0" x2="0" y2="1">
-<stop offset="0" stop-color="${ooze.light}"/>
-<stop offset="0.25" stop-color="${ooze.core}"/>
-<stop offset="1" stop-color="${ooze.deep}"/>
-</linearGradient>
-<radialGradient id="${id}halo" cx="0.5" cy="0.55" r="0.5">
-<stop offset="0" stop-color="${ooze.core}" stop-opacity="${glow}"/>
-<stop offset="1" stop-color="${ooze.core}" stop-opacity="0"/>
-</radialGradient>
-<clipPath id="${id}tube"><rect x="${x}" y="${TOP}" width="${TUBE_W}" height="${height}" rx="10"/></clipPath>
-</defs>
-<ellipse class="${id}h" cx="${cx}" cy="${MID}" rx="${TUBE_W * 0.85}" ry="${round((BOTTOM - TOP) * 0.75)}" fill="url(#${id}halo)"/>
-<g clip-path="url(#${id}tube)">
-<rect x="${x}" y="${TOP}" width="${TUBE_W}" height="${height}" fill="#06100c" opacity="0.9"/>
-<rect x="${x}" y="${level}" width="${TUBE_W}" height="${round(rise + 4)}" fill="url(#${id}ooze)"/>
-<path class="${id}w" d="M${x - 70} ${level} q15 -5 30 0 t30 0 t30 0 t30 0 t30 0 t30 0 t30 0 t30 0 t30 0 V${round(level + 10)} H${x - 70} Z" fill="${ooze.light}" opacity="${rise > 3 ? 0.8 : 0}"/>
-${bubbles}
-</g>
-<rect x="${x}" y="${TOP}" width="${TUBE_W}" height="${height}" rx="10" fill="url(#glass)" stroke="#9fd8c4" stroke-opacity="0.35" stroke-width="2"/>
-<rect x="${x + 10}" y="${TOP + 8}" width="6" height="${height - 20}" rx="3" fill="#ffffff" opacity="0.12"/>
-<text x="${cx}" y="${isFull ? MID - 4 : MID + 8}" text-anchor="middle" ${FONT} font-size="24" font-weight="800" fill="#f2fff0" stroke="#000000" stroke-opacity="0.55" stroke-width="4" paint-order="stroke">${round(p)}%</text>
-${isFull ? `<text x="${cx}" y="${MID + 14}" text-anchor="middle" ${FONT} font-size="11" font-weight="700" fill="#ffffff" stroke="#000000" stroke-opacity="0.5" stroke-width="3" paint-order="stroke">AT LIMIT</text>` : ''}
-<text x="${cx}" y="22" text-anchor="middle" ${FONT} font-size="14" font-weight="700" fill="${ooze.light}">${escape(label)}</text>
-<text x="${cx}" y="${H - 10}" text-anchor="middle" ${FONT} font-size="11" fill="#b4d8bf">${escape(sub)}</text>`
-}
-
-function frame(): string {
-  const bolts = (y: number) =>
-    [26, 74, 124, 174, 222].map(bx => `<circle cx="${bx}" cy="${y}" r="3" fill="#0a0f0e" stroke="#5c6966" stroke-width="1"/>`).join('')
-  return `<defs>
-<linearGradient id="glass" x1="0" y1="0" x2="1" y2="0">
-<stop offset="0" stop-color="#ffffff" stop-opacity="0.16"/>
-<stop offset="0.18" stop-color="#ffffff" stop-opacity="0.04"/>
-<stop offset="0.8" stop-color="#ffffff" stop-opacity="0.02"/>
-<stop offset="1" stop-color="#ffffff" stop-opacity="0.14"/>
-</linearGradient>
-<linearGradient id="metal" x1="0" y1="0" x2="0" y2="1">
-<stop offset="0" stop-color="#55625f"/>
-<stop offset="0.5" stop-color="#2a3331"/>
-<stop offset="1" stop-color="#161c1b"/>
-</linearGradient>
-<linearGradient id="spine" x1="0" y1="0" x2="1" y2="0">
-<stop offset="0" stop-color="#161c1b"/>
-<stop offset="0.5" stop-color="#46524f"/>
-<stop offset="1" stop-color="#161c1b"/>
-</linearGradient>
-</defs>
-<rect x="${SPINE_X}" y="${TOP - 2}" width="${SPINE_W}" height="${BOTTOM - TOP + 4}" fill="url(#spine)"/>
-<rect x="14" y="36" width="${W - 28}" height="28" rx="6" fill="url(#metal)" stroke="#0a0f0e"/>
-<rect x="14" y="${BOTTOM - 2}" width="${W - 28}" height="24" rx="6" fill="url(#metal)" stroke="#0a0f0e"/>
-${bolts(50)}${bolts(BOTTOM + 10)}`
-}
-
-function styles(list: { id: string; rise: number }[]): string {
-  const per = list
-    .map(
-      ({ id, rise }) => `
-.${id}b { animation: ${id}up 4s linear infinite; opacity: 0.7; }
-@keyframes ${id}up { 0% { transform: translateY(0); opacity: 0; } 15% { opacity: 0.85; } 90% { opacity: 0.6; } 100% { transform: translateY(-${Math.max(0, round(rise - 8))}px); opacity: 0; } }
-.${id}w { animation: wave 6s linear infinite; }
-.${id}h { animation: halo 7s ease-in-out infinite; }`,
-    )
-    .join('')
-  return `<style>
-@keyframes wave { from { transform: translateX(0); } to { transform: translateX(60px); } }
-@keyframes halo { 0%, 100% { opacity: 0.8; } 50% { opacity: 1; } }
-${per}
-@media (prefers-reduced-motion: reduce) { * { animation: none !important; } }
-</style>`
-}
-
-function resets(iso: string | undefined, isWeekly: boolean): string {
+function resetLabel(iso: string | undefined, isWeekly: boolean): string {
   if (iso === undefined) {
     return ''
   }
@@ -134,40 +36,83 @@ function resets(iso: string | undefined, isWeekly: boolean): string {
     return ''
   }
   try {
-    const when = isWeekly
+    return isWeekly
       ? at.toLocaleString(undefined, { weekday: 'short', hour: 'numeric', minute: '2-digit' })
       : at.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
-    return `resets ${when}`
   } catch {
-    return `resets ${iso.slice(0, 16).replace('T', ' ')}`
+    return iso.slice(0, 16).replace('T', ' ')
   }
 }
 
-export function drawing(five: Gauge | undefined, week: Gauge | undefined): string {
-  const p5 = five?.percentUsed ?? 0
-  const p7 = week?.percentUsed ?? 0
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">
-${styles([
-  { id: 'g', rise: riseFor(p5) },
-  { id: 'r', rise: riseFor(p7) },
-])}
-${tube('g', LEFT_X, p5, GREEN, '5-hour', five ? resets(five.resetsAt, false) : 'no reading yet')}
-${tube('r', RIGHT_X, p7, RED, 'Weekly', week ? resets(week.resetsAt, true) : 'no reading yet')}
-${frame()}
-</svg>`
+// What one canister shows: a live reading, a window that has reset since the
+// last reading, or no reading at all.
+type Side = { level: number; value: string; remaining: string; tip: string }
+
+export function side(name: string, g: Gauge | undefined, now: number, isWeekly: boolean): Side {
+  if (g === undefined) {
+    return { level: 0, value: '—', remaining: 'NO DATA YET', tip: `${name}: no reading yet; shows after Claude's next reply` }
+  }
+  const resetAt = g.resetsAt === undefined ? NaN : new Date(g.resetsAt).getTime()
+  if (!Number.isNaN(resetAt) && resetAt <= now) {
+    return { level: 0, value: '—', remaining: 'RESET · AWAITING UPDATE', tip: `${name}: the window reset; the new reading comes with Claude's next reply` }
+  }
+  const p = clamp(g.percentUsed)
+  const when = resetLabel(g.resetsAt, isWeekly)
+  return {
+    level: p,
+    value: `${Math.round(p)}%`,
+    remaining: `${Math.round(100 - p)}% REMAINING`,
+    tip: `${name}: ${Math.round(p)}% used${when ? `, resets ${when}` : ''}`,
+  }
 }
 
-// Gauge state, kept for the session; change the tag when Gauge's fields change.
+const levelOf = (g: Gauge | undefined, now: number, isWeekly: boolean) => side('', g, now, isWeekly).level
+
+// Fills the V10 template: liquid height, bar width, readouts and tooltips for
+// each canister, and where each one moves from.
+export function fillCapacity(
+  template: string,
+  list: readonly Gauge[],
+  previous: readonly Gauge[],
+  now: number,
+): string {
+  const values: Record<string, string> = {}
+  const sides: [string, string, string, boolean][] = [
+    ['WEEK', 'seven_day', 'Weekly limit', true],
+    ['FIVE', 'five_hour', '5-hour limit', false],
+  ]
+  for (const [key, kind, name, isWeekly] of sides) {
+    const s = side(name, list.find(g => g.kind === kind), now, isWeekly)
+    const from = levelOf(previous.find(g => g.kind === kind), now, isWeekly)
+    const h = round2((VIAL_H * s.level) / 100)
+    const h0 = round2((VIAL_H * from) / 100)
+    values[`${key}_FH`] = `${h}`
+    values[`${key}_FY`] = `${round2(VIAL_BOTTOM - h)}`
+    values[`${key}_FH0`] = `${h0}`
+    values[`${key}_FY0`] = `${round2(VIAL_BOTTOM - h0)}`
+    values[`${key}_BARW`] = `${round2((BAR_W * s.level) / 100)}`
+    values[`${key}_BARW0`] = `${round2((BAR_W * from) / 100)}`
+    values[`${key}_VALUE`] = escape(s.value)
+    values[`${key}_REMAIN`] = escape(s.remaining)
+    values[`${key}_TIP`] = escape(s.tip)
+  }
+  return template.replace(/\{\{([A-Z0-9_]+)\}\}/g, (whole, name: string) => values[name] ?? whole)
+}
+
+// Usage state, kept for the session; change a tag when Gauge's fields change.
 const gauges = atom({ plugin: 'ooze-gauge', key: 'gauges' } as const, [], { shape: 'gauges-1' })
+const previous = atom({ plugin: 'ooze-gauge', key: 'previous' } as const, [], { shape: 'gauges-1' })
 
 type Reading = { kind: string; percentUsed: number; resetsAt?: string }
 
 const pick = (list: readonly Reading[]): Gauge[] =>
-  list.map(g =>
-    g.resetsAt === undefined
-      ? { kind: g.kind, percentUsed: g.percentUsed }
-      : { kind: g.kind, percentUsed: g.percentUsed, resetsAt: g.resetsAt },
-  )
+  list
+    .filter(g => g.kind === 'five_hour' || g.kind === 'seven_day')
+    .map(g =>
+      g.resetsAt === undefined
+        ? { kind: g.kind, percentUsed: g.percentUsed }
+        : { kind: g.kind, percentUsed: g.percentUsed, resetsAt: g.resetsAt },
+    )
 
 const bar = (p: number, cells: number) => {
   const filled = Math.round((clamp(p) / 100) * cells)
@@ -177,25 +122,74 @@ const bar = (p: number, cells: number) => {
 const PANE = 'ooze-gauge'
 const TITLE = 'Usage'
 
+let resetTimer: { cancel: () => void } | undefined
+
+// Stores a new reading, keeping the old one to animate from. Readings arrive
+// with Claude's replies (session.measure), so nothing here polls.
+async function store($: EngineInterface, list: readonly Reading[]): Promise<void> {
+  const fresh = pick(list)
+  const old = await read($, gauges)
+  if (JSON.stringify(old) === JSON.stringify(fresh)) {
+    return
+  }
+  await update($, previous, () => old)
+  await update($, gauges, () => fresh)
+  await schedule($, fresh)
+}
+
+// Wakes once at the next window reset, so the canister shows it on time.
+async function schedule($: EngineInterface, list: readonly Gauge[]): Promise<void> {
+  resetTimer?.cancel()
+  resetTimer = undefined
+  const now = await $.clock.now()
+  const times = list
+    .map(g => (g.resetsAt === undefined ? NaN : new Date(g.resetsAt).getTime()))
+    .filter(t => !Number.isNaN(t) && t > now)
+  if (times.length === 0) {
+    return
+  }
+  try {
+    resetTimer = $.clock.after(Math.min(...times) - now + 1000, () => {
+      void onReset($)
+    })
+  } catch {
+    // No timer: the reset shows with the next reading instead.
+  }
+}
+
+async function onReset($: EngineInterface): Promise<void> {
+  // A write redraws the canisters, which now read the window as reset.
+  const held = await read($, gauges)
+  await update($, previous, () => held.map(g => ({ ...g })))
+  const latest = await $.session.usage()
+  await store($, latest.rateLimits)
+  await schedule($, await read($, gauges))
+}
+
+// The pane asks to start as a widget (the small corner form); the app decides
+// the seat, and in testing it docked the pane on the right instead.
+const OPEN = { id: PANE, title: TITLE, placement: 'widget' } as const
+
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
     await $.command.register({ name: 'ooze', description: 'Show your usage limits as ooze canisters' })
     const now = await $.session.usage()
-    await update($, gauges, () => pick(now.rateLimits))
-    void $.ui.open({ id: PANE, title: TITLE })
+    await store($, now.rateLimits)
+    await schedule($, await read($, gauges))
+    void $.ui.open(OPEN)
 
     return next(e)
   })
 
   on('command.run', { command: 'ooze' }, async $ => {
-    await $.ui.open({ id: PANE, title: TITLE })
+    await $.ui.open(OPEN)
 
     return { text: 'Usage canisters opened.' }
   })
 
   on('session.measure', async ($, e, next) => {
     if (e.changed.includes('rateLimits')) {
-      await update($, gauges, () => pick(e.rateLimits))
+      await store($, e.rateLimits)
     }
 
     return next(e)
@@ -203,41 +197,48 @@ export const register: Register = on => {
 
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
     const list = await read($, gauges)
-    const five = list.find(g => g.kind === 'five_hour')
-    const week = list.find(g => g.kind === 'seven_day')
+    const before = await read($, previous)
+    const now = await $.clock.now()
+    const week = side('Weekly', list.find(g => g.kind === 'seven_day'), now, true)
+    const five = side('5-hour', list.find(g => g.kind === 'five_hour'), now, false)
     const { Box, Text } = $.ui.resolve(e)
 
     if (e.surface === 'desktop' || e.surface === 'mobile') {
       const { Svg } = $.ui.resolve(e)
-      const isSmall = e.props.placement === 'widget'
-      const alt = `5-hour usage ${five?.percentUsed ?? 0}%, weekly usage ${week?.percentUsed ?? 0}%`
+      const alt = `Weekly usage ${week.value}, 5-hour usage ${five.value}`
+      // 240 px in a widget or a narrow dock (about 28 columns), 320 px when wider.
+      const width = e.props.placement === 'widget' || e.props.bodyColumns < 40 ? 240 : ART_W
+      const fallback = (why: string) => (
+        <Box flexDirection="column">
+          <Text dimColor>{why}</Text>
+          <Text>
+            Weekly {week.value} · 5-hour {five.value}
+          </Text>
+        </Box>
+      )
+      const source = fillCapacity(WIDGET_SVG, list, before, now)
+      if (JSON.stringify(source).length > TREE_BUDGET - 1_000) {
+        return fallback('The capacity artwork is too large to draw.')
+      }
 
       return (
         <Box flexDirection="column">
-          <Svg
-            source={drawing(five, week)}
-            alt={alt}
-            width={isSmall ? W / 2 : W}
-            height={isSmall ? H / 2 : H}
-            isInteractive
-          />
-          {list.length === 0 && (
-            <Text dimColor>Usage shows after Claude's next reply (subscription plans only).</Text>
-          )}
+          <Svg source={source} alt={alt} width={width} height={round2((width * ART_H) / ART_W)} isInteractive />
+          {list.length === 0 && <Text dimColor>Usage shows after Claude's next reply (subscription plans only).</Text>}
         </Box>
       )
     }
 
-    const cells = Math.max(6, Math.min(30, e.props.bodyColumns - 16))
+    const cells = Math.max(6, Math.min(30, e.props.bodyColumns - 22))
 
     return (
       <Box flexDirection="column">
         {list.length === 0 && <Text dimColor>Usage shows after Claude's next reply.</Text>}
-        <Text color="green">
-          5-hour {bar(five?.percentUsed ?? 0, cells)} {five?.percentUsed ?? 0}%
+        <Text color="magenta">
+          Weekly {bar(week.level, cells)} {week.value} {week.remaining.toLowerCase()}
         </Text>
-        <Text color="red">
-          Weekly {bar(week?.percentUsed ?? 0, cells)} {week?.percentUsed ?? 0}%
+        <Text color="green">
+          5-hour {bar(five.level, cells)} {five.value} {five.remaining.toLowerCase()}
         </Text>
       </Box>
     )

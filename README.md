@@ -6,7 +6,7 @@ A home for my Claude Code mods: small add-ons that change how Claude Code looks 
 
 | Mod | What it does |
 | --- | --- |
-| [ooze-gauge](plugins/ooze-gauge) | A **Usage** pane showing your plan limits as one device with two glass tubes: green ooze fills the left tube with your 5-hour usage, neon-red ooze fills the right tube with your weekly usage. Each tube shows the percent used and when the limit resets. Type `/ooze` to reopen the pane. |
+| [ooze-gauge](plugins/ooze-gauge) | A **Usage** pane showing your plan limits as two cinematic neon canisters: electric-magenta ooze fills the left canister with your weekly usage, radioactive-green ooze fills the right one with your 5-hour usage. Under each: the percent used, what's left, and a bar. Hover a canister to see when it resets. Type `/ooze` to reopen the pane. |
 
 ## Install
 
@@ -28,9 +28,11 @@ In the desktop app: click **+** next to the prompt box, then **Plugins**, **Add 
 
 ## Notes
 
-- The canisters fill in after Claude's first reply in a session, and only on subscription plans, which have usage limits.
+- The canisters fill in after Claude's first reply in a session, and only on subscription plans, which have usage limits. Until then each shows "—" and **NO DATA YET**; when a limit's window resets, its canister empties and shows **RESET · AWAITING UPDATE** until the next reading.
+- The pane opens on its own when a session starts. It asks to sit as a small corner widget, but the desktop app decides where it goes; in testing it docked on the right.
 - The drawing shows in the desktop and mobile apps. The terminal shows two plain text bars instead.
-- Motion (the moving ooze surface and rising sparks) stops when reduced motion is turned on.
+- Motion (the moving ooze surface, rising bubbles and level changes) stops when reduced motion is turned on.
+- The design comes from [design/](design), which rebuilds the widget from the original V10 mock-up.
 
 ## License
 
