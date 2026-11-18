@@ -10,8 +10,6 @@ A home for my Claude Code mods: small add-ons that change how Claude Code looks 
 
 ## Install
 
-This repository is private: you need read access on GitHub, and your computer needs a git login for github.com (for example `gh auth login`, then `gh auth setup-git`).
-
 At the prompt of a Claude Code terminal session:
 
 ```
@@ -33,3 +31,7 @@ In the desktop app: click **+** next to the prompt box, then **Plugins**, **Add 
 - The canisters fill in after Claude's first reply in a session, and only on subscription plans, which have usage limits.
 - The drawing shows in the desktop and mobile apps. The terminal shows two plain text bars instead.
 - Motion (the moving ooze surface and rising sparks) stops when reduced motion is turned on.
+
+## License
+
+[MIT](LICENSE): use, change and share these mods freely; keep the copyright notice with any copy.
