@@ -1,7 +1,7 @@
 import type { TestBody } from 'claude-code/testing'
 import { expect, test } from 'claude-code/testing'
 
-import { fillCapacity, side, TREE_BUDGET } from '../hooks/register.js'
+import { fillCapacity, side, TREE_BUDGET, untilLabel } from '../hooks/register.js'
 import { WIDGET_SVG } from '../hooks/widget-svg.js'
 
 declare const console: { log: (...args: unknown[]) => void }
@@ -30,13 +30,14 @@ const PROPS: PaneProps = {
 const PANE = { plugin: 'ooze-gauge', component: 'Pane', requestId: 'ooze-gauge', props: PROPS } as const
 
 const NOW = Date.parse('2026-11-18T12:00:00Z')
-const LATER = '2099-12-31T23:59:00Z'
+const FIVE_RESET = '2026-11-18T14:14:00Z' // 2h 14m after NOW
+const WEEK_RESET = '2026-11-22T18:00:00Z' // 4d 6h after NOW
 const PAST = '2026-11-18T11:00:00Z'
 
 type Reading = { kind: string; percentUsed: number; resetsAt?: string }
-const reading = (weekly: number, fiveHour: number, resetsAt = LATER): Reading[] => [
-  { kind: 'five_hour', percentUsed: fiveHour, resetsAt },
-  { kind: 'seven_day', percentUsed: weekly, resetsAt },
+const reading = (weekly: number, fiveHour: number, resetsAt?: string): Reading[] => [
+  { kind: 'five_hour', percentUsed: fiveHour, resetsAt: resetsAt ?? FIVE_RESET },
+  { kind: 'seven_day', percentUsed: weekly, resetsAt: resetsAt ?? WEEK_RESET },
 ]
 
 // The liquid (nested svg) and bar of each canister, read out of a filled widget.
@@ -46,17 +47,21 @@ function level(svg: string, which: keyof typeof VIAL_X): { height: number; y: nu
   if (!m) throw new Error(`no liquid body for ${which}`)
   return { y: Number(m[1]), height: Number(m[2]) }
 }
-function bar(svg: string, cls: 'wk' | 'fv'): number {
-  const at = svg.indexOf(`<g clip-path="url(#${cls}Inner)"><rect class="bar"`)
-  const m = svg.slice(at).match(/width="([\d.]+)"/)
-  if (at < 0 || !m) throw new Error(`no bar for ${cls}`)
-  return Number(m[1])
+// The percentage drawn inside a canister, and the caption under it.
+function inside(svg: string, which: keyof typeof VIAL_X): string | undefined {
+  const cx = (Number(VIAL_X[which]) + 63.36 / 2).toFixed(2).replace(/\.?0+$/, '')
+  return svg.match(new RegExp(`<text class="value" x="${cx}" y="127.55"[^>]*>([^<]*)</text>`))?.[1]
+}
+function caption(svg: string, which: keyof typeof VIAL_X): string | undefined {
+  const cx = (Number(VIAL_X[which]) + 63.36 / 2).toFixed(2).replace(/\.?0+$/, '')
+  return svg.match(new RegExp(`<text class="reset" x="${cx}"[^>]*>([^<]*)</text>`))?.[1]
 }
 
 // Mounts the pane on desktop with these readings and returns the drawn tree.
 async function drawn($: Engine, on: On, rl: Reading[], props: Partial<PaneProps> = {}) {
   on('clock.now', () => ({ value: NOW }))
   on('clock.after', () => ({ deny: 'no timers in tests' }))
+  on('clock.every', () => ({ deny: 'no timers in tests' }))
   on('command.register', () => ({ value: { command: 'ooze' } }))
   on('ui.open', () => ({ value: { isPlaced: true } }))
   on('session.usage', () => ({ value: { startedAt: 0, context: { window: 200000 }, rateLimits: rl } }))
@@ -73,12 +78,16 @@ test('the canisters show both windows from real usage', async ($, on) => {
   const { svg } = await drawn($, on, reading(70, 30))
   expect(svg?.props.alt).toBe('Weekly usage 70%, 5-hour usage 30%')
   expect(svg?.props.width).toBe(240)
-  expect(String(svg?.props.source)).toContain('>70%</text>')
-  expect(String(svg?.props.source)).toContain('>30% REMAINING</text>')
+  expect(svg?.props.height).toBe(210) // shorter now that the readout strip is gone
+  const source = String(svg?.props.source)
+  expect(inside(source, 'weekly')).toBe('70%')
+  expect(inside(source, 'fiveHour')).toBe('30%')
+  expect(caption(source, 'weekly')).toBe('RESETS IN 4D 6H')
+  expect(caption(source, 'fiveHour')).toBe('RESETS IN 2H 14M')
 
   const term = await $.ui.mount({ ...PANE, surface: 'terminal' })
-  expect((await term.find({ type: 'Text', text: /Weekly/ }))?.text).toContain('30% remaining')
-  expect((await term.find({ type: 'Text', text: /5-hour/ }))?.text).toContain('70% remaining')
+  expect((await term.find({ type: 'Text', text: /Weekly/ }))?.text).toContain('70% · resets in 4d 6h')
+  expect((await term.find({ type: 'Text', text: /5-hour/ }))?.text).toContain('30% · resets in 2h 14m')
   await term.unmount()
 })
 
@@ -96,6 +105,7 @@ test('/ooze reopens the pane', async ($, on) => {
   })
   on('clock.now', () => ({ value: NOW }))
   on('clock.after', () => ({ deny: 'no timers in tests' }))
+  on('clock.every', () => ({ deny: 'no timers in tests' }))
   on('session.usage', () => ({ value: { startedAt: 0, context: { window: 200000 }, rateLimits: [] } }))
   on('session.start', (_, e) => ({ cwd: e.cwd }))
   await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true })
@@ -163,11 +173,29 @@ test('each canister fills to its own level at 0, 25, 50, 75 and 100%', () => {
     // Every level sits on the vial floor.
     expect(Math.round((wk.y + wk.height) * 100) / 100).toBe(187.84)
     expect(Math.round((fv.y + fv.height) * 100) / 100).toBe(187.84)
-    expect(bar(svg, 'wk')).toBe(Math.round(134.17 * w) / 100)
-    expect(bar(svg, 'fv')).toBe(Math.round(134.17 * f) / 100)
-    expect(svg).toContain(`>${w}%</text>`)
-    expect(svg).toContain(`>${100 - f}% REMAINING</text>`)
+    expect(inside(svg, 'weekly')).toBe(`${w}%`)
+    expect(inside(svg, 'fiveHour')).toBe(`${f}%`)
   }
+})
+
+test('no progress bars or "% remaining": the canisters show the fill', () => {
+  const svg = fillCapacity(WIDGET_SVG, reading(70, 30), [], NOW)
+  expect(svg.includes('class="bar"')).toBe(false)
+  expect(svg.includes('class="track"')).toBe(false)
+  expect(svg.includes('REMAINING')).toBe(false)
+})
+
+test('the caption counts down to each reset', () => {
+  expect(untilLabel(0)).toBe('<1M')
+  expect(untilLabel(59_000)).toBe('<1M')
+  expect(untilLabel(9 * 60_000 + 59_000)).toBe('9M')
+  expect(untilLabel((2 * 60 + 14) * 60_000)).toBe('2H 14M')
+  expect(untilLabel(24 * 3_600_000)).toBe('1D 0H')
+  expect(untilLabel((4 * 24 + 6) * 3_600_000 + 59 * 60_000)).toBe('4D 6H')
+  const nearly = fillCapacity(WIDGET_SVG, reading(10, 20, '2026-11-18T12:00:30Z'), [], NOW)
+  expect(caption(nearly, 'fiveHour')).toBe('RESETS IN &lt;1M')
+  const unknown = fillCapacity(WIDGET_SVG, [{ kind: 'five_hour', percentUsed: 5 }], [], NOW)
+  expect(caption(unknown, 'fiveHour')).toBe('RESET TIME UNKNOWN')
 })
 
 test('weekly is magenta and 5-hour is green', () => {
@@ -211,7 +239,7 @@ test('one liquid body and one matching surface highlight per canister', () => {
 
 test('reduced motion stops the bubbles, the wave and the level changes', () => {
   expect(WIDGET_SVG).toContain(
-    '@media (prefers-reduced-motion:reduce){.bubble{animation:none}.liquid-body animate{display:none}.lvl,.fclip,.bar{animation:none}}',
+    '@media (prefers-reduced-motion:reduce){.bubble{animation:none}.liquid-body animate{display:none}.lvl,.fclip{animation:none}}',
   )
 })
 
@@ -219,6 +247,6 @@ test('a reset window waits for the next reading instead of showing old usage', (
   const past = side('5-hour', { kind: 'five_hour', percentUsed: 80, resetsAt: PAST }, NOW, false)
   expect(past.level).toBe(0)
   expect(past.value).toBe('—')
-  expect(past.remaining).toBe('RESET · AWAITING UPDATE')
-  expect(side('Weekly', undefined, NOW, true).remaining).toBe('NO DATA YET')
+  expect(past.reset).toBe('RESET · UPDATES SOON')
+  expect(side('Weekly', undefined, NOW, true).reset).toBe('NO DATA YET')
 })

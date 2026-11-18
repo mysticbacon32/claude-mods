@@ -7,6 +7,8 @@ declare module 'claude-code' {
       gauges: Shaped<Gauge[]>
       // The readings drawn before them: where the liquid rises or falls from.
       previous: Shaped<Gauge[]>
+      // Bumped once a minute so the reset countdown redraws.
+      minute: Shaped<number>
     }
   }
 }
