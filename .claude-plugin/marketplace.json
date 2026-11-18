@@ -1,0 +1,12 @@
+{
+  "name": "claude-mods",
+  "owner": { "name": "mysticbacon32" },
+  "description": "Personal Claude Code mods: panes, looks and small tweaks to the app.",
+  "plugins": [
+    {
+      "name": "ooze-gauge",
+      "source": "./plugins/ooze-gauge",
+      "description": "Usage limits as glowing ooze canisters: green for the 5-hour window, neon red for the week."
+    }
+  ]
+}

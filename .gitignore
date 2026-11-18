@@ -1,0 +1,5 @@
+# Written by Claude Code when a mod loads; not part of the source.
+.claude-plugin/types/
+plugins/*/.claude-plugin/types/
+.DS_Store
+*.log
