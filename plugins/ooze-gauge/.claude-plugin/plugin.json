@@ -1,8 +1,0 @@
-{
-  "name": "ooze-gauge",
-  "version": "0.1.0",
-  "description": "Usage limits as glowing ooze canisters: green for the 5-hour window, neon red for the week.",
-  "types": "./types/index.d.ts",
-  "author": { "name": "mysticbacon32" },
-  "license": "MIT"
-}
