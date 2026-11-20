@@ -3,17 +3,12 @@
   "owner": {
     "name": "mysticbacon32"
   },
-  "description": "Personal Claude Code add-ons: skills, mods for panes and looks, and small tweaks to the app.",
+  "description": "Personal Claude Code mods: panes, looks and small tweaks to the app.",
   "plugins": [
     {
       "name": "ooze-gauge",
       "source": "./plugins/ooze-gauge",
       "description": "Usage limits as two cinematic neon canisters: magenta for the weekly limit, radioactive green for the 5-hour window."
-    },
-    {
-      "name": "spring-cleaning",
-      "source": "./plugins/spring-cleaning",
-      "description": "Finds clutter and drift in your Claude setup and project folders, shows what each finding costs in tokens and storage, and fixes only what you pick. Every delete is undoable for 30 days."
     }
   ]
 }

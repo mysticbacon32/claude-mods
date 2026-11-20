@@ -1,9 +1,0 @@
-{
-  "name": "spring-cleaning",
-  "version": "1.0.0",
-  "description": "Finds clutter and drift in your Claude setup and project folders, shows what each finding costs in tokens and storage, and fixes only what you pick. Every delete is undoable for 30 days.",
-  "author": {
-    "name": "mysticbacon32"
-  },
-  "license": "MIT"
-}
