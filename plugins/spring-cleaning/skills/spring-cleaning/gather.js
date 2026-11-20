@@ -24,6 +24,16 @@ const USER_CONFIG_FILE = path.join(CLAUDE, 'spring-cleaning', 'config.json');
 const USER_CONFIG = (() => { try { return JSON.parse(fs.readFileSync(USER_CONFIG_FILE, 'utf8')); } catch { return {}; } })();
 const ROOTS = (Array.isArray(USER_CONFIG.projectRoots) && USER_CONFIG.projectRoots.length ? USER_CONFIG.projectRoots : [process.cwd()])
   .map(p => path.resolve(p.replace(/^~(?=$|[\\/])/, HOME)));
+// Folders to skip everywhere: a plain name ("Dead Projects") matches any folder with that name;
+// a path ("~/Archive") matches that folder and everything inside it.
+const IGNORE = (Array.isArray(USER_CONFIG.ignorePaths) ? USER_CONFIG.ignorePaths : []).map(s => String(s));
+const IGNORE_NAMES = new Set(IGNORE.filter(s => !/[\\/]/.test(s) && !s.startsWith('~')).map(s => s.toLowerCase()));
+const IGNORE_PATHS = IGNORE.filter(s => /[\\/]/.test(s) || s.startsWith('~')).map(s => path.resolve(s.replace(/^~(?=$|[\\/])/, HOME)).toLowerCase());
+function isIgnored(p) {
+  const lp = path.resolve(p).toLowerCase();
+  if (IGNORE_NAMES.has(path.basename(lp))) return true;
+  return IGNORE_PATHS.some(ip => lp === ip || lp.startsWith(ip + path.sep));
+}
 const LOCALAPPDATA = process.env.LOCALAPPDATA || path.join(HOME, 'AppData', 'Local');
 const CLAUDE_DATA = path.join(LOCALAPPDATA, 'Claude-Data');
 const TEMP_CLAUDE = path.join(os.tmpdir(), 'claude');
@@ -346,6 +356,7 @@ function walkDirs(root, maxDepth, cb) {
     for (const e of ls(d)) {
       if (!e.isDirectory() || e.name === '.git' || e.name === 'node_modules') continue;
       const p = path.join(d, e.name);
+      if (isIgnored(p)) continue;
       if (cb(p, e.name, depth + 1) === false) continue;
       if (depth + 1 < maxDepth) stack.push([p, depth + 1]);
     }
@@ -540,7 +551,7 @@ function areaClutter() {
       const d = stack.pop();
       for (const e of ls(d)) {
         const p = path.join(d, e.name);
-        if (e.isDirectory()) { if (e.name !== '.git' && e.name !== 'node_modules') stack.push(p); continue; }
+        if (e.isDirectory()) { if (e.name !== '.git' && e.name !== 'node_modules' && !isIgnored(p)) stack.push(p); continue; }
         const st = statSafe(p);
         if (st && st.size > limit) add({ area: 'clutter', title: `Large file: ${e.name} (${Math.round(st.size / 1048576)} MB)`, detail: `${p}, last changed ${daysAgo(st.mtimeMs)} days ago.`, fix: 'Move it to the holding folder if you no longer need it.', label: 'careful', paths: [p], storageBytes: st.size });
       }
