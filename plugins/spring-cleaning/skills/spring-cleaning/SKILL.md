@@ -32,8 +32,10 @@ If `config.json` doesn't exist, ask the user two things before step 0:
 Then write the file:
 
 ```json
-{ "projectRoots": ["~/path/to/projects"], "logFile": "~/path/to/spring-cleaning-log.md" }
+{ "projectRoots": ["~/path/to/projects"], "logFile": "~/path/to/spring-cleaning-log.md", "ignorePaths": [] }
 ```
+
+`ignorePaths` lists folders to skip everywhere, such as an archive of shelved projects. A plain name (`"Dead Projects"`) matches any folder with that name; a path (`"~/Archive"`) matches that folder and everything inside it. If the user mentions an archive folder, offer to add it.
 
 ## Which kind of run
 

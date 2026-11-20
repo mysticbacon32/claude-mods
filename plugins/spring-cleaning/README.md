@@ -59,11 +59,12 @@ The skill is switched off by default (`disable-model-invocation: true`), so it c
 It asks two questions and saves the answers to `~/.claude/spring-cleaning/config.json`:
 
 ```json
-{ "projectRoots": ["~/Projects"], "logFile": "~/.claude/spring-cleaning/spring-cleaning-log.md" }
+{ "projectRoots": ["~/Projects"], "logFile": "~/.claude/spring-cleaning/spring-cleaning-log.md", "ignorePaths": ["Dead Projects"] }
 ```
 
 - `projectRoots`: the folders that hold your projects. Subfolders are scanned up to a few levels deep.
 - `logFile`: where the change log lives. A folder you back up is a good choice.
+- `ignorePaths` (optional): folders to skip everywhere, such as an archive of shelved projects. A plain name matches any folder with that name; a path like `~/Archive` matches that folder and everything inside it.
 
 ## Requirements
 
