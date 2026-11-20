@@ -10,16 +10,14 @@ A home for my Claude Code add-ons: skills that do a job for you, and mods that c
 
 ## Mods
 
-| Mod | What it does |
-| --- | --- |
-| [ooze-gauge](plugins/ooze-gauge) | A **Usage** pane showing your plan limits as one device with two glass tubes: green ooze fills the left tube with your 5-hour usage, neon-red ooze fills the right tube with your weekly usage. Each tube shows the percent used and when the limit resets. Type `/ooze` to reopen the pane. |
+None right now. The ooze-gauge usage pane is archived at the tag [`archive/ooze-gauge-v10`](https://github.com/mysticbacon32/claude-mods/tree/archive/ooze-gauge-v10).
 
 ## Install
 
-Swap in the name of the skill or mod you want (`spring-cleaning`, `ooze-gauge`). At the prompt of a Claude Code terminal session:
+Swap in the name of the skill or mod you want. At the prompt of a Claude Code terminal session:
 
 ```
-/plugin install ooze-gauge --marketplace mysticbacon32/claude-mods
+/plugin install spring-cleaning --marketplace mysticbacon32/claude-mods
 ```
 
 Answer `y` to add the marketplace, then press Enter to pick the user scope.
@@ -27,16 +25,10 @@ Answer `y` to add the marketplace, then press Enter to pick the user scope.
 From a shell:
 
 ```
-claude plugin install ooze-gauge --marketplace mysticbacon32/claude-mods
+claude plugin install spring-cleaning --marketplace mysticbacon32/claude-mods
 ```
 
 In the desktop app: click **+** next to the prompt box, then **Plugins**, **Add marketplace** with `mysticbacon32/claude-mods`, then **Add plugin**.
-
-## Notes on ooze-gauge
-
-- The canisters fill in after Claude's first reply in a session, and only on subscription plans, which have usage limits.
-- The drawing shows in the desktop and mobile apps. The terminal shows two plain text bars instead.
-- Motion (the moving ooze surface and rising sparks) stops when reduced motion is turned on.
 
 ## License
 
