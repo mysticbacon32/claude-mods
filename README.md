@@ -1,6 +1,12 @@
 # claude-mods
 
-A home for my Claude Code mods: small add-ons that change how Claude Code looks or behaves. Each mod lives in its own folder under `plugins/`, and this repository is a plugin marketplace, so any mod here installs with one line.
+A home for my Claude Code add-ons: skills that do a job for you, and mods that change how Claude Code looks or behaves. Each one lives in its own folder under `plugins/`, and this repository is a plugin marketplace, so anything here installs with one line.
+
+## Skills
+
+| Skill | What it does |
+| --- | --- |
+| [spring-cleaning](plugins/spring-cleaning) | Checks your Claude setup and project folders for unused skills and plugins, leftover folders, uncommitted git work, stale notes, settings clutter, old sessions and scratch files. It shows what each finding costs in tokens and storage on a savings page, then fixes only what you pick. Deletes go to a holding folder for 30 days, every run is logged with undo steps, and an optional report-only run can happen every 3 months. |
 
 ## Mods
 
@@ -10,7 +16,7 @@ A home for my Claude Code mods: small add-ons that change how Claude Code looks 
 
 ## Install
 
-At the prompt of a Claude Code terminal session:
+Swap in the name of the skill or mod you want (`spring-cleaning`, `ooze-gauge`). At the prompt of a Claude Code terminal session:
 
 ```
 /plugin install ooze-gauge --marketplace mysticbacon32/claude-mods
@@ -26,7 +32,7 @@ claude plugin install ooze-gauge --marketplace mysticbacon32/claude-mods
 
 In the desktop app: click **+** next to the prompt box, then **Plugins**, **Add marketplace** with `mysticbacon32/claude-mods`, then **Add plugin**.
 
-## Notes
+## Notes on ooze-gauge
 
 - The canisters fill in after Claude's first reply in a session, and only on subscription plans, which have usage limits. Until then each shows "—" and **NO DATA YET**; when a limit's window resets, its canister empties and shows **RESET · UPDATES SOON** until the next reading.
 - The pane opens on its own when a session starts. It asks to sit as a small corner widget, but the desktop app decides where it goes; in testing it docked on the right.
@@ -36,4 +42,4 @@ In the desktop app: click **+** next to the prompt box, then **Plugins**, **Add 
 
 ## License
 
-[MIT](LICENSE): use, change and share these mods freely; keep the copyright notice with any copy.
+[MIT](LICENSE): use, change and share these skills and mods freely; keep the copyright notice with any copy.
